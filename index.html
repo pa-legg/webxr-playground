@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Image Plane</title>
+    <style>
+        body { margin: 0; }
+    </style>
+</head>
+<body>
+    <button id="xr-button">Enter XR</button>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.min.js"></script>
+
+    <script>
+        // Create a scene
+        const scene = new THREE.Scene();
+
+        // Create a camera
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+
+        // Create a WebGLRenderer
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Create a plane
+        const geometry = new THREE.PlaneGeometry(8, 4.5);
+        const material = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('UWEcyber-desktop-red.png') });
+        const plane = new THREE.Mesh(geometry, material);
+
+        scene.add(plane);
+
+        // Render the scene
+        function animate() {
+            requestAnimationFrame(animate);
+            plane.rotation.x += 0.005;
+            plane.rotation.y += 0.005;
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+
+
+        const xrButton = document.getElementById('xr-button');
+        xrButton.addEventListener('click', () => {
+            if (navigator.xr) {
+                navigator.xr
+                    .requestSession('immersive-ar')
+                    .then((xrSession) => {
+                        // Initialize your XR session
+                        onSessionStarted(xrSession);
+                    })
+                    .catch((error) => {
+                        console.error('Failed to start XR session:', error);
+                    });
+            }
+        });
+
+        function onSessionStarted(xrSession) {
+            // Set up XR session
+            xrSession.updateRenderState({ baseLayer: new XRWebGLLayer(xrSession) });
+
+            // Create an XR reference space
+            xrSession.requestReferenceSpace('local')
+                .then((xrReferenceSpace) => {
+                    // Add your three.js scene to the XR reference space
+                    xrReferenceSpace.onreset = () => {
+                        // Handle XR session reset, if necessary
+                    };
+
+                    // Update the rendering loop for XR
+                    function onXRFrame(time, frame) {
+                        // Update your XR scene here
+                        const pose = frame.getViewerPose(xrReferenceSpace);
+                        if (pose) {
+                            // Render your XR scene
+
+                            const xrView = pose.views[0]; // In most cases, you can use the first view
+                            const viewMatrix = xrView.transform.matrix;
+
+                            // Update the camera view matrix using the XR view
+                            camera.matrix.fromArray(viewMatrix);
+                            camera.updateMatrixWorld(true);
+                            
+                            requestAnimationFrame(animate);
+                            plane.rotation.x += 0.005;
+                            plane.rotation.y += 0.005;
+                            renderer.render(scene, camera);
+                        }
+
+                        xrSession.requestAnimationFrame(onXRFrame);
+                    }
+
+                    // Start the XR session
+                    xrSession.requestAnimationFrame(onXRFrame);
+                })
+                .catch((error) => {
+                    console.error('Failed to get XR reference space:', error);
+                });
+        }
+
+    </script>
+
+</body>
+</html>
